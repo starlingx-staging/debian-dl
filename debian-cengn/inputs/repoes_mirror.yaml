@@ -1,7 +1,7 @@
 ---
 URL_BASE: https://anonymous:xxxxxx@opendev.org/starlingx
 BRANCH: master
-REPO_BASE: /outputs/repoes
+REPO_BASE: /repoes
 MIRROR_BASE: /outputs/debian
 REPO_LIST:
   - ansible-playbooks
