@@ -15,6 +15,8 @@ RUN     apt-get update && apt-get install  --no-install-recommends -y \
         pip3 install \
         PyYaml==5.1
 
+RUN     apt-get install -y python3-debian
+
 ARG MYUNAME=builder
 ARG MYUID=1000
 ENV container=docker

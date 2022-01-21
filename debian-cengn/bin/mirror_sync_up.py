@@ -14,6 +14,7 @@
 #
 # Copyright (C) 2021 WindRiver Corporation
 
+import debian.deb822
 import git
 import hashlib
 import logging
@@ -88,7 +89,7 @@ def download(url, md5sum, logger):
         download_cmd = "wget -t 5 --wait=15 %s -O %s"
         run_shell_cmd(download_cmd % (url, save_file), logger)
     else:
-        logger.info("Already downloaded %s" % save_file)
+        logger.info("Already downloaded '%s'" % save_file)
 
     return True
 
@@ -103,6 +104,24 @@ def is_git_repo(path):
     except git.exc.InvalidGitRepositoryError:
         shutil.rmtree(path)
         return False
+
+
+def check_dsc(dsc_file, logger):
+
+    logger.info("Check %s" % dsc_file)
+    if not os.path.exists(dsc_file):
+        return False
+
+    with open(dsc_file) as f:
+        c = debian.deb822.Dsc(f)
+
+    base_dir = os.path.dirname(dsc_file)
+    for f in c['Files']:
+        local_f = os.path.join(base_dir, f['name'])
+        if not md5_checksum(local_f, f['md5sum'], logger):
+            return False
+
+    return True
 
 
 def clone_repoes(meta_data, logger):
@@ -214,11 +233,14 @@ def main():
             dsc_filename = pkgname + "_" + debver + ".dsc"
             dsc_file = os.path.join(meta_data["archive"], dsc_filename)
             local_dir, _ = parse_url(dsc_file)
-            try:
-                run_shell_cmd("cd %s;dget -d %s" % (local_dir, dsc_file), logger)
-            except Exception:
-                logger.error("Failed to download '%s' from '%s'", dsc_file, yaml_file)
-                failed_urls[yaml_file] = [ dsc_file ]
+            if not check_dsc(os.path.join(local_dir, dsc_filename), logger):
+                try:
+                    run_shell_cmd("cd %s;dget -d %s" % (local_dir, dsc_file), logger)
+                except Exception:
+                    logger.error("Failed to download '%s' from '%s'", dsc_file, yaml_file)
+                    failed_urls[yaml_file] = [ dsc_file ]
+            else:
+                logger.info("Already downloaded '%s'" % dsc_file,)
 
         if "dl_files" in meta_data:
             for dl_file in meta_data['dl_files']:

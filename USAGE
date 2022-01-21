@@ -1,11 +1,11 @@
 pushd docker/
-docker build --build-arg MYUID=$(id -u) --build-arg MYUNAME=${USER} -t debian-cengn -f Dockerfile .
+docker build --build-arg MYUID=$(id -u) --build-arg MYUNAME=${USER} -t debian-cengn-${USER} -f Dockerfile .
 popd
 mkdir -p outputs
-docker run -it --rm --name debian-cengn \
+docker run -it --rm --name debian-cengn-${USER} \
    -v $PWD/bin:/usr/local/bin \
    -v $PWD/inputs:/inputs \
    -v $PWD/repoes:/repoes \
    -v $PWD/outputs:/outputs \
-   debian-cengn
+   debian-cengn-${USER}
 
