@@ -1,45 +1,9 @@
 ---
+MANIFEST_URL: https://anonymous:xxxxxx@opendev.org/starlingx/manifest
+MANIFEST_REVISION: master
+MANIFEST_FILE: default.xml
 URL_BASE: https://anonymous:xxxxxx@opendev.org/starlingx
 BRANCH: master
 REPO_BASE: /repoes
+DOWNLOADS_BASE: /outputs
 MIRROR_BASE: /outputs/debian
-REPO_LIST:
-  - ansible-playbooks
-  - audit-armada-app
-  - cert-manager-armada-app
-  - clients
-  - compile
-  - config
-  - config-files
-  - containers
-  - distcloud
-  - distcloud-client
-  - docs
-  - fault
-  - gui
-  - ha
-  - helm-charts
-  - integ
-  - kernel
-  - metal
-  - metrics-server-armada-app
-  - monitor-armada-app
-  - monitoring
-  - nfv
-  - nginx-ingress-controller-armada-app
-  - oidc-auth-armada-app
-  - openstack-armada-app
-  - platform-armada-app
-  - portieris-armada-app
-  - ptp-notification-armada-app
-  - rook-ceph
-  - SDO-rv-service
-  - snmp-armada-app
-  - stx-puppet
-  - test
-  - tools
-  - update
-  - upstream
-  - utilities
-  - vault-armada-app
-  - zuul-jobs

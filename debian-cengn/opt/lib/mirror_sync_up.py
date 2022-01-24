@@ -25,34 +25,12 @@ import subprocess
 import sys
 import urllib.parse
 import yaml
+from repo_utils import repo_init, repo_sync
+from shell_commands import run_shell_cmd
+from git_utils import git_list
+
 
 REPOES_MIRROR = "/inputs/repoes_mirror.yaml"
-
-def run_shell_cmd(cmd, logger):
-
-    logger.info(f'[ Run - "{cmd}" ]')
-    try:
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                   universal_newlines=True, shell=True)
-        # process.wait()
-        outs, errs = process.communicate()
-    except Exception:
-        process.kill()
-        outs, errs = process.communicate()
-        logger.error(f'[ Failed - "{cmd}" ]')
-        raise Exception(f'[ Failed - "{cmd}" ]')
-
-    for log in outs.strip().split("\n"):
-        if log != "":
-            logger.debug(log.strip())
-
-    if process.returncode != 0:
-        for log in errs.strip().split("\n"):
-            logger.error(log)
-        logger.error(f'[ Failed - "{cmd}" ]')
-        raise Exception(f'[ Failed - "{cmd}" ]')
-
-    return outs.strip()
 
 
 def md5_checksum(dl_file, md5sum, logger):
@@ -126,34 +104,42 @@ def check_dsc(dsc_file, logger):
 
 def clone_repoes(meta_data, logger):
 
+    manifest_url = meta_data["MANIFEST_URL"]
+    manifest_revision = meta_data["MANIFEST_REVISION"]
+    manifest_file = meta_data["MANIFEST_FILE"]
+
     repo_base = meta_data["REPO_BASE"]
-    mirror_base = meta_data["MIRROR_BASE"]
-    url_base = meta_data["URL_BASE"]
-    branch = meta_data["BRANCH"]
-    repo_list = meta_data["REPO_LIST"]
+    # mirror_base = meta_data["MIRROR_BASE"]
+    # url_base = meta_data["URL_BASE"]
+    # branch = meta_data["BRANCH"]
+    # repo_list = meta_data["REPO_LIST"]
 
     if not os.path.exists(repo_base):
         run_shell_cmd("mkdir -p %s" % repo_base, logger)
 
-    for repo in repo_list:
-        repo_url = os.path.join(url_base, repo)
-        repo_path = os.path.join(repo_base, repo)
-        if is_git_repo(repo_path):
-            logger.info('Pulling %s ...', repo)
-            repo = git.Repo(repo_path)
-            try:
-                repo.git.checkout(branch)
-                repo.git.pull()
-            except git.exc.GitCommandError:
-                logging.error('Failed to pull %s', repo)
-                raise 
-        else:
-            logger.info('Cloning %s ...', repo)
-            try:
-                repo = git.Repo.clone_from(repo_url, repo_path, single_branch=True, b=branch)
-            except git.exc.GitCommandError:
-                logging.error('Failed to clone %s', repo)
-                raise
+    repo_init(dir=repo_base, manifest_url=manifest_url, revision=manifest_revision, manifest=manifest_file, logger=logger)
+
+    repo_sync(dir=repo_base, num_threads=20, logger=logger)
+
+    # for repo in repo_list:
+    #     repo_url = os.path.join(url_base, repo)
+    #     repo_path = os.path.join(repo_base, repo)
+    #     if is_git_repo(repo_path):
+    #         logger.info('Pulling %s ...', repo)
+    #         repo = git.Repo(repo_path)
+    #         try:
+    #             repo.git.checkout(branch)
+    #             repo.git.pull()
+    #         except git.exc.GitCommandError:
+    #             logging.error('Failed to pull %s', repo)
+    #             raise 
+    #     else:
+    #         logger.info('Cloning %s ...', repo)
+    #         try:
+    #             repo = git.Repo.clone_from(repo_url, repo_path, single_branch=True, b=branch)
+    #         except git.exc.GitCommandError:
+    #             logging.error('Failed to clone %s', repo)
+    #             raise
 
 def set_logger():
 
@@ -183,9 +169,12 @@ def main():
     clone_repoes(meta_data, logger)
 
     yaml_list = []
-    for root, dirs, _ in os.walk(repo_base):
-        for d in dirs:
-            debian_pkg_dirs = os.path.join(root, d, "debian_pkg_dirs")
+    # for root, dirs, _ in os.walk(repo_base):
+    #    for d in dirs:
+    for d in git_list(dir=repo_base):
+        if True:
+            # debian_pkg_dirs = os.path.join(root, d, "debian_pkg_dirs")
+            debian_pkg_dirs = os.path.join(d, "debian_pkg_dirs")
             if not os.path.exists(debian_pkg_dirs):
                 continue
             pkg_file = open(debian_pkg_dirs,  "r")
@@ -193,7 +182,8 @@ def main():
             for pkg in pkgs:
                 if pkg.strip() == "":
                     continue
-                yaml_file = os.path.join(root, d, pkg.strip(), "debian/meta_data.yaml")
+                # yaml_file = os.path.join(root, d, pkg.strip(), "debian/meta_data.yaml")
+                yaml_file = os.path.join(d, pkg.strip(), "debian/meta_data.yaml")
                 if not os.path.exists(yaml_file):
                     continue
                 yaml_list.append(yaml_file)

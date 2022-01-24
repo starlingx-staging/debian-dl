@@ -1,0 +1,3 @@
+#!/bin/bash
+
+python3 /opt/lib/mirror_sync_up.py $@

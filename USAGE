@@ -3,7 +3,7 @@ docker build --build-arg MYUID=$(id -u) --build-arg MYUNAME=${USER} -t debian-ce
 popd
 mkdir -p outputs
 docker run -it --rm --name debian-cengn-${USER} \
-   -v $PWD/bin:/usr/local/bin \
+   -v $PWD/local:/usr/local \
    -v $PWD/inputs:/inputs \
    -v $PWD/repoes:/repoes \
    -v $PWD/outputs:/outputs \
