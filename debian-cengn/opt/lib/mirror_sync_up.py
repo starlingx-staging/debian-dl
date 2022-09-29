@@ -15,6 +15,7 @@
 # Copyright (C) 2021 WindRiver Corporation
 
 import debian.deb822
+import fnmatch
 import git
 import hashlib
 import logging
@@ -33,13 +34,51 @@ from git_utils import git_list
 REPOES_MIRROR = "/inputs/repoes_mirror.yaml"
 
 
-def md5_checksum(dl_file, md5sum, logger):
+def get_binary_lists(repo_dir):
+
+    """
+    Return all binary packages listed in base-bullseye.lst, os-std.lst,os-rt.lst
+    """
+    binary_lists = []
+    stx_config = os.path.join(repo_dir, 'stx-tools/debian-mirror-tools/config/debian')
+
+    search_dir = os.path.join(stx_config, 'common')
+    pattern='base-*.lst'
+    for root, dirs, files in os.walk(search_dir):
+        for f in fnmatch.filter(files, pattern):
+            binary_lists.append(os.path.join(root, f))
+
+    return binary_lists
+
+def get_binary_urls(bin_list):
+    pkg_list = dict()
+    with open(bin_list) as flist:
+        lines = list(line for line in (lpkg.strip() for lpkg in flist) if line)
+        for pkg in lines:
+            pkg = pkg.strip()
+            if pkg.startswith('#'):
+                continue
+            pkg_metadata = pkg.split()
+            if len(pkg_metadata) < 3:
+                continue
+            pkg_name = pkg_metadata[0]
+            pkg_url = pkg_metadata[2]
+            pkg_list[pkg_name] = pkg_url
+
+    return pkg_list
+
+
+def checksum(dl_file, checksum, cmd, logger):
 
     if not os.path.exists(dl_file):
         return False
 
-    md5 = run_shell_cmd('md5sum %s |cut -d" " -f1' % dl_file, logger)
-    if md5 != md5sum:
+    if cmd == None:
+        return True
+
+    check_sum = run_shell_cmd('%s "%s" |cut -d" " -f1' % (cmd, dl_file), logger)
+    if check_sum != checksum:
+        logger.debug(f"{cmd} checksum mismatch of {dl_file}")
         return False
     return True
 
@@ -47,7 +86,7 @@ def md5_checksum(dl_file, md5sum, logger):
 def parse_url(url):
 
     url_change = urllib.parse.urlparse(url)
-    path = pathlib.Path(url_change.path)
+    path = pathlib.Path(urllib.parse.unquote(url_change.path))
     if url_change.netloc != '':
         local_dir = pathlib.Path(url_change.netloc, path.parent.relative_to("/"))
     else:
@@ -58,14 +97,17 @@ def parse_url(url):
     return local_dir, save_file
 
 
-def download(url, md5sum, logger):
+
+def download(url, check_sum, check_cmd, logger):
 
     _, save_file = parse_url(url)
 
-    if not md5_checksum(save_file, md5sum, logger):
+    if not checksum(save_file, check_sum, check_cmd, logger):
         logger.info(f"Download {url} to {save_file}")
-        download_cmd = "wget -t 5 --wait=15 %s -O %s"
-        run_shell_cmd(download_cmd % (url, save_file), logger)
+        tmp_file = ".".join([str(save_file), "tmp"])
+        download_cmd = "rm -rf '%s'; curl -kfL '%s' -o '%s'" % (tmp_file, url, tmp_file)
+        run_shell_cmd(download_cmd, logger)
+        run_shell_cmd("mv '%s' '%s'" % (tmp_file, save_file), logger)
     else:
         logger.info("Already downloaded '%s'" % save_file)
 
@@ -84,9 +126,9 @@ def is_git_repo(path):
         return False
 
 
-def check_dsc(dsc_file, logger):
+def checksum_dsc(dsc_file, logger):
 
-    logger.info("Check %s" % dsc_file)
+    logger.info("validating %s" % dsc_file)
     if not os.path.exists(dsc_file):
         return False
 
@@ -94,9 +136,9 @@ def check_dsc(dsc_file, logger):
         c = debian.deb822.Dsc(f)
 
     base_dir = os.path.dirname(dsc_file)
-    for f in c['Files']:
+    for f in c['Checksums-Sha256']:
         local_f = os.path.join(base_dir, f['name'])
-        if not md5_checksum(local_f, f['md5sum'], logger):
+        if not checksum(local_f, f['sha256'], "sha256sum", logger):
             return False
 
     return True
@@ -121,26 +163,6 @@ def clone_repoes(meta_data, logger):
 
     repo_sync(dir=repo_base, num_threads=20, logger=logger)
 
-    # for repo in repo_list:
-    #     repo_url = os.path.join(url_base, repo)
-    #     repo_path = os.path.join(repo_base, repo)
-    #     if is_git_repo(repo_path):
-    #         logger.info('Pulling %s ...', repo)
-    #         repo = git.Repo(repo_path)
-    #         try:
-    #             repo.git.checkout(branch)
-    #             repo.git.pull()
-    #         except git.exc.GitCommandError:
-    #             logging.error('Failed to pull %s', repo)
-    #             raise 
-    #     else:
-    #         logger.info('Cloning %s ...', repo)
-    #         try:
-    #             repo = git.Repo.clone_from(repo_url, repo_path, single_branch=True, b=branch)
-    #         except git.exc.GitCommandError:
-    #             logging.error('Failed to clone %s', repo)
-    #             raise
-
 def set_logger():
 
     logger = logging.getLogger("mirror")
@@ -151,6 +173,7 @@ def set_logger():
     logger.addHandler(console)
 
     return logger
+
 
 
 def main():
@@ -168,9 +191,9 @@ def main():
     mirror_base = meta_data["MIRROR_BASE"]
     clone_repoes(meta_data, logger)
 
+    # Scan StarlingX git repos, build up a list of meta_data.yaml
+    # files for all debian packages we need to build.
     yaml_list = []
-    # for root, dirs, _ in os.walk(repo_base):
-    #    for d in dirs:
     for d in git_list(dir=repo_base):
         if True:
             # debian_pkg_dirs = os.path.join(root, d, "debian_pkg_dirs")
@@ -182,7 +205,6 @@ def main():
             for pkg in pkgs:
                 if pkg.strip() == "":
                     continue
-                # yaml_file = os.path.join(root, d, pkg.strip(), "debian/meta_data.yaml")
                 yaml_file = os.path.join(d, pkg.strip(), "debian/meta_data.yaml")
                 if not os.path.exists(yaml_file):
                     continue
@@ -194,7 +216,8 @@ def main():
     pwd = os.getcwd()
     os.chdir(mirror_base)
 
-    # SAL
+    # For each meta_data.yaml file, make sure we have a mirror copy
+    # of all needed input files for building the package.
     failed_urls = {}
     for yaml_file in yaml_list:
         logger.info("Parse %s", yaml_file)
@@ -203,7 +226,6 @@ def main():
                 meta_data = yaml.full_load(f)
         except IOError:
             logger.error("Can't open '%s'", yaml_file)
-            # SAL sys.exit(1)
             failed_yaml_list.append(yaml_file)
             continue
 
@@ -212,44 +234,75 @@ def main():
             pkgname = meta_data["debname"]
         debver = str(meta_data["debver"]).split(":")[-1]
 
-        # SAL
         if "dl_path" in meta_data:
+            url = meta_data["dl_path"]["url"]
+            if "sha256sum" in meta_data["dl_path"]:
+                check_cmd = "sha256sum"
+                check_sum = meta_data["dl_path"]['sha256sum']
+            else:
+                logger.warning(f"{dl_file} missing sha256sum")
+                check_cmd = "md5sum"
+                check_sum = meta_data["dl_path"]["md5sum"]
             try:
-                download(meta_data["dl_path"]["url"], meta_data["dl_path"]["md5sum"], logger)
+                download(url, check_sum, check_cmd, logger)
             except Exception:
-                logger.error("Failed to download '%s' from '%s'", meta_data["dl_path"]["url"], yaml_file)
-                failed_urls[yaml_file] = [ meta_data["dl_path"]["url"] ]
+                logger.error("Failed to download '%s' from '%s'", url, yaml_file)
+                failed_urls[yaml_file] = [ url ]
         elif "archive" in meta_data:
             dsc_filename = pkgname + "_" + debver + ".dsc"
             dsc_file = os.path.join(meta_data["archive"], dsc_filename)
             local_dir, _ = parse_url(dsc_file)
-            if not check_dsc(os.path.join(local_dir, dsc_filename), logger):
+            if not checksum_dsc(os.path.join(local_dir, dsc_filename), logger):
                 try:
                     run_shell_cmd("cd %s;dget -d %s" % (local_dir, dsc_file), logger)
                 except Exception:
                     logger.error("Failed to download '%s' from '%s'", dsc_file, yaml_file)
                     failed_urls[yaml_file] = [ dsc_file ]
             else:
-                logger.info("Already downloaded '%s'" % dsc_file,)
+                logger.info("Already downloaded '%s'" % dsc_file)
 
         if "dl_files" in meta_data:
             for dl_file in meta_data['dl_files']:
-                url = meta_data['dl_files'][dl_file]['url']
-                md5sum = meta_data['dl_files'][dl_file]['md5sum']
+                dl_file_info = meta_data['dl_files'][dl_file]
+                url = dl_file_info['url']
+                if "sha256sum" in dl_file_info:
+                    check_cmd = "sha256sum"
+                    check_sum = dl_file_info['sha256sum']
+                else:
+                    logger.warning(f"{dl_file} missing sha256sum")
+                    check_cmd = "md5sum"
+                    check_sum = dl_file_info['md5sum']
                 try:
-                    download(url, md5sum, logger)
-                except Exception:
+                    download(url, check_sum, check_cmd, logger)
+                except Exception as e:
                     logger.error("Failed to download '%s' from '%s'", url, yaml_file)
+                    print(e)
                     if yaml_file in failed_urls:
                         failed_urls[yaml_file].append(url)
                     else:
                         failed_urls[yaml_file] = [ url ]
+
+    bin_lists = get_binary_lists(repo_base)
+    for bin_list in bin_lists:
+        pkgs = get_binary_urls(bin_list)
+        for pkg in pkgs:
+            try:
+                download(pkgs[pkg], None, None, logger)
+            except Exception as e:
+                logger.error("Failed to download '%s' from '%s'", pkgs[pkg], bin_list)
+                print(e)
+                if bin_list in failed_urls:
+                    failed_urls[bin_list].append(url)
+                else:
+                    failed_urls[bin_list] = [ url ]
 
     if len(failed_urls) > 0:
         logger.error("=== List of failed yaml files and urls ===")
         for failed_yaml_file in failed_urls:
             for failed_url in failed_urls[failed_yaml_file]:
                logger.error("%s : %s", failed_yaml_file, failed_url)
+    else:
+        logger.info("All files downloaded successfully")
         
     os.chdir(pwd)
 

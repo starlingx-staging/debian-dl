@@ -7,6 +7,7 @@ RUN     apt-get update && apt-get install  --no-install-recommends -y \
         sudo \
         vim \
         wget \
+        coreutils \
         devscripts \
         debian-keyring \
         python3 \
