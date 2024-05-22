@@ -41,12 +41,11 @@ def get_binary_lists(repo_dir):
     """
     binary_lists = []
     stx_config = os.path.join(repo_dir, 'stx-tools/debian-mirror-tools/config/debian')
-
-    search_dir = os.path.join(stx_config, 'common')
-    pattern='base-*.lst'
-    for root, dirs, files in os.walk(search_dir):
-        for f in fnmatch.filter(files, pattern):
-            binary_lists.append(os.path.join(root, f))
+    patterns=['base-*.lst', 'os-std.lst', 'os-rt.std']
+    for root, dirs, files in os.walk(stx_config):
+        for pattern in patterns:
+            for f in fnmatch.filter(files, pattern):
+                binary_lists.append(os.path.join(root, f))
 
     return binary_lists
 
@@ -240,7 +239,7 @@ def main():
                 check_cmd = "sha256sum"
                 check_sum = meta_data["dl_path"]['sha256sum']
             else:
-                logger.warning(f"{dl_file} missing sha256sum")
+                logger.warning(f"dl_path missing sha256sum")
                 check_cmd = "md5sum"
                 check_sum = meta_data["dl_path"]["md5sum"]
             try:
