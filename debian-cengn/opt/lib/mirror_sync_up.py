@@ -106,6 +106,8 @@ def download(url, check_sum, check_cmd, logger):
         tmp_file = ".".join([str(save_file), "tmp"])
         download_cmd = "rm -rf '%s'; curl -kfL '%s' -o '%s'" % (tmp_file, url, tmp_file)
         run_shell_cmd(download_cmd, logger)
+        if not checksum(tmp_file, check_sum, check_cmd, logger):
+            raise Exception('checksum mismatch after downloading "%s"' % url)
         run_shell_cmd("mv '%s' '%s'" % (tmp_file, save_file), logger)
     else:
         logger.info("Already downloaded '%s'" % save_file)
