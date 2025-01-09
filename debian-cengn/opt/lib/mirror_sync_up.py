@@ -197,19 +197,19 @@ def main():
     yaml_list = []
     for d in git_list(dir=repo_base):
         if True:
-            # debian_pkg_dirs = os.path.join(root, d, "debian_pkg_dirs")
-            debian_pkg_dirs = os.path.join(d, "debian_pkg_dirs")
-            if not os.path.exists(debian_pkg_dirs):
-                continue
-            pkg_file = open(debian_pkg_dirs,  "r")
-            pkgs = pkg_file.readlines()
-            for pkg in pkgs:
-                if pkg.strip() == "":
+            # debian_pkg_dirs = os.path.join(d, "debian_pkg_dirs")
+            for debian_pkg_dirs in glob.glob(os.path.join(d, "debian_pkg_dirs*")):
+                if not os.path.exists(debian_pkg_dirs):
                     continue
-                yaml_file = os.path.join(d, pkg.strip(), "debian/meta_data.yaml")
-                if not os.path.exists(yaml_file):
-                    continue
-                yaml_list.append(yaml_file)
+                pkg_file = open(debian_pkg_dirs,  "r")
+                pkgs = pkg_file.readlines()
+                for pkg in pkgs:
+                    if pkg.strip() == "":
+                        continue
+                    yaml_file = os.path.join(d, pkg.strip(), "debian/meta_data.yaml")
+                    if not os.path.exists(yaml_file):
+                        continue
+                    yaml_list.append(yaml_file)
 
     if not os.path.exists(mirror_base):
         run_shell_cmd("mkdir -p %s" % mirror_base, logger)
