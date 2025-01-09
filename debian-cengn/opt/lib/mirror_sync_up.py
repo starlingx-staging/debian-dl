@@ -17,6 +17,7 @@
 import debian.deb822
 import fnmatch
 import git
+import glob
 import hashlib
 import logging
 import os
