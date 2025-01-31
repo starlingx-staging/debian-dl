@@ -4,16 +4,17 @@ RUN echo "deb-src http://deb.debian.org/debian/ bullseye main" >> /etc/apt/sourc
 
 # Download required dependencies by mirror/build processes.
 RUN     apt-get update && apt-get install  --no-install-recommends -y \
-        sudo \
-        vim \
-        wget \
         coreutils \
-        devscripts \
         debian-keyring \
+        devscripts \
         python3 \
-        python3-pip \
+        python3-debian \
         python3-git \
-        python3-debian
+        python3-pip \
+        sudo \
+        util-linux \
+        vim \
+        wget 
 
 RUN     sudo pip3 install \
         PyYaml==5.1
@@ -49,4 +50,4 @@ RUN echo "$MYUNAME ALL=(ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers
 USER $MYUNAME
 WORKDIR /outputs
 
-CMD ["/bin/bash", "/opt/bin/mirror_sync_up"]
+CMD ["ionice", "-c", "3", "nice", "-n", "15", "/bin/bash", "/opt/bin/mirror_sync_up"]
