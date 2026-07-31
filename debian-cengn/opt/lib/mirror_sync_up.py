@@ -207,10 +207,12 @@ def main():
                 for pkg in pkgs:
                     if pkg.strip() == "":
                         continue
-                    yaml_file = os.path.join(d, pkg.strip(), "debian/meta_data.yaml")
-                    if not os.path.exists(yaml_file):
+                    pkg_dir = os.path.join(d, pkg.strip())
+                    # Check direct path (legacy) and codename subdirs
+                    found = glob.glob(os.path.join(pkg_dir, "debian/meta_data.yaml")) +                             glob.glob(os.path.join(pkg_dir, "debian/*/meta_data.yaml"))
+                    if not found:
                         continue
-                    yaml_list.append(yaml_file)
+                    yaml_list.extend(found)
 
     if not os.path.exists(mirror_base):
         run_shell_cmd("mkdir -p %s" % mirror_base, logger)
