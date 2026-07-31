@@ -32,8 +32,8 @@ from shell_commands import run_shell_cmd
 from git_utils import git_list
 
 
-REPOES_MIRROR = "/inputs/repoes_mirror.yaml"
-
+REPOES_MIRRORS = [ "/inputs/repoes_mirror.yaml", 
+                   "/inputs/repoes_mirror-f-trixie.yaml" ]
 
 def get_binary_lists(repo_dir):
 
@@ -178,15 +178,12 @@ def set_logger():
 
 
 
-def main():
-
-    logger = set_logger()
-   
+def do_repo(repoes_mirror):
     try:
-        with open(REPOES_MIRROR) as f:
+        with open(repoes_mirror) as f:
             meta_data = yaml.full_load(f)
     except IOError:
-        logger.error("Can't open %s", REPOES_MIRROR)
+        logger.error("Can't open %s", repoes_mirror)
         sys.exit(1)
 
     repo_base = meta_data["REPO_BASE"]
@@ -288,12 +285,13 @@ def main():
 
     bin_lists = get_binary_lists(repo_base)
     for bin_list in bin_lists:
-        pkgs = get_binary_urls(bin_list)
-        for pkg in pkgs:
+        logger.info("processing list file: %s", bin_list)
+        pkgs_urls = get_binary_urls(bin_list)
+        for pkg in pkgs_urls:
             try:
-                download(pkgs[pkg], None, None, logger)
+                download(pkgs_urls[pkg], None, None, logger)
             except Exception as e:
-                logger.error("Failed to download '%s' from '%s'", pkgs[pkg], bin_list)
+                logger.error("Failed to download '%s' from '%s'", pkgs_urls[pkg], bin_list)
                 print(e)
                 if bin_list in failed_urls:
                     failed_urls[bin_list].append(url)
@@ -309,6 +307,15 @@ def main():
         logger.info("All files downloaded successfully")
         
     os.chdir(pwd)
+
+
+def main():
+
+    global logger
+    logger = set_logger()
+   
+    for REPOES_MIRROR in REPOES_MIRRORS:
+        do_repo(REPOES_MIRROR)
 
 
 if __name__ == "__main__":

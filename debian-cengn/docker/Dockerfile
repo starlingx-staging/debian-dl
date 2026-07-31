@@ -4,6 +4,7 @@ RUN echo "deb-src http://deb.debian.org/debian/ bullseye main" >> /etc/apt/sourc
 
 # Download required dependencies by mirror/build processes.
 RUN     apt-get update && apt-get install  --no-install-recommends -y \
+        bash \
         coreutils \
         debian-keyring \
         devscripts \

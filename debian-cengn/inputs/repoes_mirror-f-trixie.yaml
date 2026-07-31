@@ -1,9 +1,9 @@
 ---
 MANIFEST_URL: https://anonymous:xxxxxx@opendev.org/starlingx/manifest
-MANIFEST_REVISION: master
+MANIFEST_REVISION: f/trixie
 MANIFEST_FILE: default.xml
 URL_BASE: https://anonymous:xxxxxx@opendev.org/starlingx
 BRANCH: master
-REPO_BASE: /repoes/master
+REPO_BASE: /repoes/f-trixie
 DOWNLOADS_BASE: /outputs
 MIRROR_BASE: /outputs/debian
