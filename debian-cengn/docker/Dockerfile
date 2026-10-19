@@ -1,6 +1,8 @@
 FROM debian:bullseye
 
-RUN echo "deb-src http://deb.debian.org/debian/ bullseye main" >> /etc/apt/sources.list
+RUN echo "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20260824T000000Z bullseye main" > /etc/apt/sources.list && \
+    echo "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/20260824T000000Z bullseye-security main" >> /etc/apt/sources.list && \
+    echo "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20260824T000000Z bullseye-updates main" >> /etc/apt/sources.list
 
 # Download required dependencies by mirror/build processes.
 RUN     apt-get update && apt-get install  --no-install-recommends -y \
