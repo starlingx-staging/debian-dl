@@ -230,7 +230,7 @@ def do_repo(repoes_mirror):
             failed_yaml_list.append(yaml_file)
             continue
 
-        pkgname = pathlib.Path(yaml_file).parent.parent.name
+        pkgname = pathlib.Path(yaml_file).parent.parent.parent.name
         if "debname" in meta_data:
             pkgname = meta_data["debname"]
         debver = str(meta_data["debver"]).split(":")[-1]
