@@ -32,13 +32,12 @@ from shell_commands import run_shell_cmd
 from git_utils import git_list
 
 
-REPOES_MIRRORS = [ "/inputs/repoes_mirror.yaml", 
-                   "/inputs/repoes_mirror-f-trixie.yaml" ]
+REPOES_MIRRORS = ["/inputs/repoes_mirror.yaml"]
 
 def get_binary_lists(repo_dir):
 
     """
-    Return all binary packages listed in base-bullseye.lst, os-std.lst,os-rt.lst
+    Return all binary packages listed in base-*.lst, os-std.lst, os-rt.lst
     """
     binary_lists = []
     stx_config = os.path.join(repo_dir, 'stx-tools/debian-mirror-tools/config/debian')
@@ -194,22 +193,25 @@ def do_repo(repoes_mirror):
     # files for all debian packages we need to build.
     yaml_list = []
     for d in git_list(dir=repo_base):
-        if True:
-            # debian_pkg_dirs = os.path.join(d, "debian_pkg_dirs")
-            for debian_pkg_dirs in glob.glob(os.path.join(d, "debian_pkg_dirs*")):
-                if not os.path.exists(debian_pkg_dirs):
+
+        # Get default filename and distro-specific filenames
+        pkg_dirs_files = glob.glob(os.path.join(d, "debian_pkg_dirs*")) + \
+                         glob.glob(os.path.join(d, f"debian_*_pkg_dirs*"))
+
+        for debian_pkg_dirs in pkg_dirs_files:
+            if not os.path.exists(debian_pkg_dirs):
+                continue
+            pkg_file = open(debian_pkg_dirs,  "r")
+            pkgs = pkg_file.readlines()
+            for pkg in pkgs:
+                if pkg.strip() == "":
                     continue
-                pkg_file = open(debian_pkg_dirs,  "r")
-                pkgs = pkg_file.readlines()
-                for pkg in pkgs:
-                    if pkg.strip() == "":
-                        continue
-                    pkg_dir = os.path.join(d, pkg.strip())
-                    # Check direct path (legacy) and codename subdirs
-                    found = glob.glob(os.path.join(pkg_dir, "debian/meta_data.yaml")) +                             glob.glob(os.path.join(pkg_dir, "debian/*/meta_data.yaml"))
-                    if not found:
-                        continue
-                    yaml_list.extend(found)
+                pkg_dir = os.path.join(d, pkg.strip())
+
+                metadata_files = glob.glob(os.path.join(pkg_dir, "debian/*/meta_data.yaml"))
+                if not metadata_files:
+                    continue
+                yaml_list.extend(metadata_files)
 
     if not os.path.exists(mirror_base):
         run_shell_cmd("mkdir -p %s" % mirror_base, logger)
@@ -305,7 +307,7 @@ def do_repo(repoes_mirror):
                logger.error("%s : %s", failed_yaml_file, failed_url)
     else:
         logger.info("All files downloaded successfully")
-        
+
     os.chdir(pwd)
 
 
@@ -313,7 +315,7 @@ def main():
 
     global logger
     logger = set_logger()
-   
+
     for REPOES_MIRROR in REPOES_MIRRORS:
         do_repo(REPOES_MIRROR)
 
